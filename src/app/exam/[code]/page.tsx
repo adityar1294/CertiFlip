@@ -2,297 +2,292 @@
 
 import React, { useState, use } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import Shell from '@/components/Shell';
+import { AppNav } from '@/components/TopNav';
+import { AppToolbar } from '@/components/Toolbar';
+import NoteInput from '@/components/NoteInput';
+import QuestionMap from '@/components/QuestionMap';
+import XpReward from '@/components/XpReward';
 import { useExams } from '@/hooks/useExams';
 import { useQuestions } from '@/hooks/useQuestions';
-import Link from 'next/link';
+import { useNotes } from '@/hooks/useNotes';
+
+type OptionKey = 'A' | 'B' | 'C' | 'D';
 
 export default function ExamPage({ params }: { params: Promise<{ code: string }> }) {
   const resolvedParams = use(params);
-  const code = resolvedParams?.code || '';
+  const code = resolvedParams?.code ?? '';
   const router = useRouter();
 
-  const { data: exams, loading: examsLoading, error: examsError } = useExams();
+  const { data: exams, loading: examsLoading } = useExams();
   const activeExam = exams?.find(e => e.code.toLowerCase() === code.toLowerCase());
-  const examId = activeExam?.id || '';
+  const examId = activeExam?.id ?? '';
 
-  const { data: questions, loading: questionsLoading, error: questionsError } = useQuestions(examId);
+  const { data: questions, loading: questionsLoading } = useQuestions(examId);
+  const { saveNote } = useNotes();
 
-  // Quiz States
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [selectedOption, setSelectedOption] = useState<string | null>(null);
-  const [hasSubmitted, setHasSubmitted] = useState(false);
-  const [answersHistory, setAnswersHistory] = useState<{ questionId: string; selected: string; correct: boolean }[]>([]);
+  const [currentIdx, setCurrentIdx] = useState(0);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [submitted, setSubmitted] = useState(false);
+  const [history, setHistory] = useState<{ questionId: string; selected: string; correct: boolean }[]>([]);
   const [showSummary, setShowSummary] = useState(false);
+  const [xpEarned, setXpEarned] = useState(0);
 
   const loading = examsLoading || (examId && questionsLoading);
-  const error = examsError || questionsError || (!loading && !activeExam ? 'Exam module not found' : null);
 
+  /* ── Loading ──────────────────────────────────────────────────────── */
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center gap-4 text-white">
-        <div className="relative w-12 h-12">
-          <div className="absolute inset-0 rounded-full border-4 border-teal-500/20" />
-          <div className="absolute inset-0 rounded-full border-4 border-t-teal-400 animate-spin" />
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--screen-bg)' }}>
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 rounded-full border-2 border-t-transparent" style={{ borderColor: 'var(--accent-teal)', animation: 'spin 0.8s linear infinite' }} />
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Loading workspace…</p>
         </div>
-        <p className="text-slate-400 animate-pulse font-medium">Loading workspace...</p>
       </div>
     );
   }
 
-  if (error) {
+  if (!activeExam) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-white">
-        <div className="p-6 rounded-2xl bg-red-950/30 border border-red-500/30 text-red-200 max-w-md w-full text-center">
-          <h3 className="font-bold text-xl mb-2">Error Loading Exam</h3>
-          <p className="text-sm text-red-300/80 mb-6">{error}</p>
-          <Link href="/" className="inline-block px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm font-semibold transition-colors">
-            Return to Dashboard
-          </Link>
+      <div className="min-h-screen flex items-center justify-center p-6" style={{ background: 'var(--screen-bg)' }}>
+        <div className="text-center">
+          <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>Exam module not found.</p>
+          <Link href="/dashboard" className="text-sm font-medium" style={{ color: 'var(--accent-teal)' }}>← Back to dashboard</Link>
         </div>
       </div>
     );
   }
 
-  if (!questions || questions.length === 0) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-white">
-        <div className="p-8 rounded-2xl bg-slate-900/60 border border-slate-800 text-slate-300 max-w-md w-full text-center">
-          <h3 className="font-bold text-xl mb-2">No Questions Available</h3>
-          <p className="text-sm text-slate-400 mb-6">This exam module doesn't contain any questions yet.</p>
-          <Link href="/" className="inline-block px-5 py-2.5 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-semibold text-sm transition-colors">
-            Back to Dashboard
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
+  /* ── Summary screen ───────────────────────────────────────────────── */
   if (showSummary) {
-    const totalQuestions = questions.length;
-    const correctCount = answersHistory.filter(ans => ans.correct).length;
-    const percentage = Math.round((correctCount / totalQuestions) * 100);
+    const total = questions?.length ?? 0;
+    const correct = history.filter(h => h.correct).length;
+    const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
 
     return (
-      <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-6">
-        <div className="max-w-xl w-full bg-slate-900/40 border border-slate-800 rounded-3xl p-10 backdrop-blur-md relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-teal-500/5 to-transparent pointer-events-none" />
-          
-          <div className="text-center relative z-10">
-            <span className="inline-block px-3 py-1 rounded-md bg-slate-800 border border-slate-700/50 text-slate-400 text-xs font-semibold uppercase tracking-wider mb-6">
-              {activeExam?.code}
+      <Shell nav={<AppNav activePage="Dashboard" examCode={activeExam.code} />} toolbar={<AppToolbar activePage="Dashboard" />}>
+        <div className="flex items-center justify-center min-h-[70vh] px-6 py-12">
+          <div className="max-w-md w-full text-center animate-fade-in">
+            <span className="label px-2 py-0.5 rounded mb-6 inline-block" style={{ color: 'var(--accent-teal)', background: 'var(--accent-teal-bg)', border: '1px solid var(--accent-teal-border)' }}>
+              {activeExam.code}
             </span>
-            <h2 className="text-3xl font-extrabold mb-8 bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
-              Practice Complete!
-            </h2>
-            
-            <div className="relative w-36 h-36 mx-auto mb-8 flex items-center justify-center">
-              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                <path
-                  className="text-slate-800"
-                  strokeWidth="3"
-                  stroke="currentColor"
-                  fill="none"
+            <h2 className="font-display text-36 mb-2" style={{ color: 'var(--text-primary)', fontFamily: 'Syne, sans-serif' }}>Practice complete!</h2>
+            <p className="text-sm mb-10" style={{ color: 'var(--text-muted)' }}>
+              {correct} / {total} correct · <span style={{ color: pct >= 60 ? 'var(--success)' : 'var(--danger)' }}>{pct}%</span>
+            </p>
+
+            {/* Score ring */}
+            <div className="relative w-32 h-32 mx-auto mb-8">
+              <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
+                <path strokeWidth="3" stroke="var(--card-border)" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                <path strokeWidth="3.5" strokeLinecap="round" stroke="var(--accent-teal)" fill="none"
+                  strokeDasharray={`${pct}, 100`}
                   d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                />
-                <path
-                  className="text-teal-400 transition-all duration-1000 ease-out"
-                  strokeDasharray={`${percentage}, 100`}
-                  strokeWidth="3.5"
-                  strokeLinecap="round"
-                  stroke="currentColor"
-                  fill="none"
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                  style={{ transition: 'stroke-dasharray 1s ease-out' }}
                 />
               </svg>
-              <div className="absolute flex flex-col items-center">
-                <span className="text-4xl font-extrabold tracking-tight text-white">{percentage}%</span>
-                <span className="text-xs text-slate-400 font-medium uppercase mt-0.5">Score</span>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="font-display text-26 font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'Syne, sans-serif' }}>{pct}%</span>
               </div>
             </div>
 
-            <p className="text-slate-300 text-lg mb-2 font-medium">
-              You answered {correctCount} out of {totalQuestions} questions correctly.
-            </p>
-            <p className="text-slate-500 text-sm mb-10 max-w-sm mx-auto">
-              {percentage >= 60 ? 'Well done! You are showing great progress for this module.' : 'Keep practicing to master this module syllabus.'}
-            </p>
+            {xpEarned > 0 && <XpReward xp={xpEarned} className="mb-6" />}
 
-            <div className="flex gap-4 justify-center">
+            <div className="flex gap-3 justify-center">
               <button
-                onClick={() => {
-                  setCurrentQuestionIndex(0);
-                  setSelectedOption(null);
-                  setHasSubmitted(false);
-                  setAnswersHistory([]);
-                  setShowSummary(false);
-                }}
-                className="px-6 py-3 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold text-sm transition-all duration-200"
+                onClick={() => { setCurrentIdx(0); setSelected(null); setSubmitted(false); setHistory([]); setShowSummary(false); setXpEarned(0); }}
+                className="px-5 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
+                style={{ background: 'var(--accent-teal)', color: '#071510' }}
               >
-                Retake Exam
+                Retake
               </button>
-              <Link
-                href="/"
-                className="px-6 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-sm transition-all duration-200 border border-slate-700/50"
-              >
-                Back to Dashboard
+              <Link href="/dashboard" className="px-5 py-2.5 rounded-xl text-sm font-medium transition-all" style={{ background: 'var(--card-raised)', color: 'var(--text-secondary)', border: '1px solid var(--card-border)' }}>
+                Dashboard
               </Link>
             </div>
           </div>
         </div>
-      </div>
+      </Shell>
     );
   }
 
-  const currentQuestion = questions[currentQuestionIndex];
-  const totalQuestions = questions.length;
-  const progressPercent = Math.round(((currentQuestionIndex + 1) / totalQuestions) * 100);
+  /* ── Main workspace ───────────────────────────────────────────────── */
+  const q = questions?.[currentIdx];
+  const total = questions?.length ?? 0;
+  const progressPct = total > 0 ? Math.round(((currentIdx + 1) / total) * 100) : 0;
 
-  const handleSubmitOption = () => {
-    if (!selectedOption || hasSubmitted) return;
-    const isCorrect = selectedOption === currentQuestion.correct_option;
-    
-    setAnswersHistory(prev => [
-      ...prev,
-      {
-        questionId: currentQuestion.id,
-        selected: selectedOption,
-        correct: isCorrect,
-      }
-    ]);
-    setHasSubmitted(true);
+  const dotStates = (questions ?? []).map((_, i) => {
+    const h = history.find(h => h.questionId === questions?.[i]?.id);
+    if (i === currentIdx) return 'active' as const;
+    if (h) return (h.correct ? 'correct' as const : 'wrong' as const);
+    return 'unanswered' as const;
+  });
+
+  const handleSubmit = () => {
+    if (!selected || submitted || !q) return;
+    const isCorrect = selected === q.correct_option;
+    setHistory(prev => [...prev, { questionId: q.id, selected, correct: isCorrect }]);
+    if (isCorrect) setXpEarned(prev => prev + 10);
+    setSubmitted(true);
   };
 
-  const handleNextQuestion = () => {
-    if (currentQuestionIndex < totalQuestions - 1) {
-      setCurrentQuestionIndex(prev => prev + 1);
-      setSelectedOption(null);
-      setHasSubmitted(false);
+  const handleNext = () => {
+    if (currentIdx < total - 1) {
+      setCurrentIdx(p => p + 1);
+      setSelected(null);
+      setSubmitted(false);
     } else {
       setShowSummary(true);
     }
   };
 
+  const getOptionStyle = (key: string): React.CSSProperties => {
+    if (!submitted) {
+      return selected === key
+        ? { background: 'var(--accent-teal-bg)', border: '1px solid var(--accent-teal)', color: 'var(--accent-teal)' }
+        : { background: 'var(--card-bg)', border: '1px solid var(--card-border)', color: 'var(--text-secondary)' };
+    }
+    if (key === q?.correct_option) return { background: 'var(--accent-teal-bg)', border: '1px solid var(--accent-teal)', color: 'var(--accent-teal)' };
+    if (key === selected) return { background: 'var(--accent-coral-bg)', border: '1px solid var(--accent-coral-border)', color: 'var(--accent-coral)' };
+    return { background: 'var(--card-bg)', border: '1px solid var(--card-border)', color: 'var(--text-muted)', opacity: 0.5 };
+  };
+
+  const options = q ? Object.entries(q.dynamic_options).filter(([k]) => k !== 'question') as [OptionKey, string][] : [];
+
   return (
-    <div className="min-h-screen bg-slate-950 text-white font-sans flex flex-col relative overflow-hidden">
-      <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-teal-500/5 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-cyan-500/5 rounded-full blur-[120px] pointer-events-none" />
+    <Shell
+      nav={
+        <AppNav
+          showExitButton
+          onExit={() => router.push('/dashboard')}
+          examCode={activeExam.code}
+          questionInfo={`Q ${currentIdx + 1} of ${total}`}
+          xp={xpEarned}
+        />
+      }
+      toolbar={<AppToolbar activePage="Practice" />}
+    >
+      {/* Progress strip */}
+      <div className="h-0.5 w-full" style={{ background: 'var(--card-border)' }}>
+        <div className="h-full transition-all duration-500" style={{ width: `${progressPct}%`, background: 'var(--accent-teal)' }} />
+      </div>
 
-      <header className="border-b border-slate-900 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50 px-6 py-4">
-        <div className="max-w-4xl mx-auto flex items-center justify-between gap-6">
-          <Link href="/" className="inline-flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm font-semibold">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0-7.5-7.5M3 12h18" />
-            </svg>
-            Exit Workspace
-          </Link>
-          
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-              {activeExam?.code}
-            </span>
-            <span className="text-xs bg-slate-900 border border-slate-800 px-2 py-0.5 rounded text-slate-400 font-bold">
-              {currentQuestionIndex + 1} / {totalQuestions}
-            </span>
-          </div>
-        </div>
-        
-        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-slate-900">
-          <div
-            className="h-full bg-teal-500 transition-all duration-300 ease-out"
-            style={{ width: `${progressPercent}%` }}
-          />
-        </div>
-      </header>
+      {/* Split layout */}
+      <div className="flex-1 grid md:grid-cols-[1.15fr_0.85fr] gap-0 overflow-hidden">
 
-      <main className="flex-1 max-w-4xl mx-auto w-full px-6 py-12 flex flex-col justify-center">
-        <div className="bg-slate-900/20 border border-slate-900 rounded-3xl p-8 md:p-10 backdrop-blur-sm relative">
-          
-          <div className="mb-10">
-            <span className="text-xs text-teal-400 font-bold uppercase tracking-wider block mb-2">Question {currentQuestionIndex + 1}</span>
-            <h2 className="text-xl md:text-2xl font-bold leading-relaxed text-slate-100">
-              {currentQuestion.dynamic_options?.question || 'Please review the options below and select the correct answer:'}
-            </h2>
+        {/* Left — question */}
+        <div className="flex flex-col p-6 md:p-10 overflow-y-auto" style={{ borderRight: '1px solid var(--screen-border)' }}>
+          {/* Question header */}
+          <div className="flex items-center justify-between mb-4">
+            <span className="label" style={{ color: 'var(--accent-teal)' }}>Question {currentIdx + 1}</span>
+            <button className="text-sm" style={{ color: 'var(--text-muted)' }} title="Bookmark">🔖</button>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 mb-8">
-            {Object.entries(currentQuestion.dynamic_options)
-              .filter(([key]) => key !== 'question')
-              .map(([key, value]) => {
-                const isSelected = selectedOption === key;
-                const isCorrect = key === currentQuestion.correct_option;
-                
-                let cardStyle = 'border-slate-800 bg-slate-900/40 hover:border-slate-700/80 hover:bg-slate-900/60';
-                let indicatorStyle = 'bg-slate-800 border-slate-700 text-slate-400';
-                
-                if (hasSubmitted) {
-                  if (isCorrect) {
-                    cardStyle = 'border-emerald-500 bg-emerald-500/10 text-emerald-200';
-                    indicatorStyle = 'bg-emerald-500 text-slate-950 border-emerald-400';
-                  } else if (isSelected) {
-                    cardStyle = 'border-red-500 bg-red-500/10 text-red-200';
-                    indicatorStyle = 'bg-red-500 text-white border-red-400';
-                  } else {
-                    cardStyle = 'border-slate-900 bg-slate-950/20 opacity-50';
-                  }
-                } else if (isSelected) {
-                  cardStyle = 'border-teal-500 bg-teal-500/10 text-teal-200';
-                  indicatorStyle = 'bg-teal-500 text-slate-950 border-teal-400';
+          {/* Question text */}
+          <h2 className="text-15 font-medium leading-relaxed mb-8" style={{ color: 'var(--text-primary)' }}>
+            {q?.dynamic_options?.question ?? ''}
+          </h2>
+
+          {/* Options */}
+          <div className="space-y-3 mb-8">
+            {options.map(([key, val]) => (
+              <button
+                key={key}
+                disabled={submitted}
+                onClick={() => setSelected(key)}
+                className="w-full flex items-start gap-4 p-4 rounded-xl text-left transition-all duration-200"
+                style={{ ...getOptionStyle(key), borderRadius: 'var(--radius-lg)' }}
+              >
+                <span className="w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                  {key}
+                </span>
+                <span className="text-sm leading-relaxed">{val}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Question map + action */}
+          <div className="mt-auto space-y-4">
+            <QuestionMap total={total} current={currentIdx} states={dotStates} />
+            <div className="flex justify-end">
+              {!submitted ? (
+                <button
+                  disabled={!selected}
+                  onClick={handleSubmit}
+                  className="px-5 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90 disabled:opacity-40"
+                  style={{ background: 'var(--accent-teal)', color: '#071510' }}
+                >
+                  Submit answer
+                </button>
+              ) : (
+                <button
+                  onClick={handleNext}
+                  className="px-5 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90 flex items-center gap-2"
+                  style={{ background: 'var(--accent-teal)', color: '#071510' }}
+                >
+                  {currentIdx < total - 1 ? 'Next' : 'Finish'} →
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Right — solution panel */}
+        <div className="hidden md:flex flex-col p-8 overflow-y-auto space-y-6">
+          <h3 className="font-display text-15" style={{ color: 'var(--text-secondary)', fontFamily: 'Syne, sans-serif' }}>
+            Step-by-step solution
+          </h3>
+
+          {submitted && q ? (
+            <div className="animate-fade-in space-y-4">
+              {/* Explanation */}
+              <div
+                className="p-4 rounded-xl text-sm leading-relaxed whitespace-pre-line"
+                style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', color: 'var(--text-secondary)', borderLeft: '3px solid var(--accent-teal)' }}
+              >
+                {q.detailed_explanation || 'No explanation provided for this question.'}
+              </div>
+
+              {/* Result chip */}
+              <div
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium"
+                style={
+                  selected === q.correct_option
+                    ? { background: 'var(--accent-teal-bg)', color: 'var(--accent-teal)', border: '1px solid var(--accent-teal-border)' }
+                    : { background: 'var(--accent-coral-bg)', color: 'var(--accent-coral)', border: '1px solid var(--accent-coral-border)' }
                 }
-
-                return (
-                  <button
-                    key={key}
-                    disabled={hasSubmitted}
-                    onClick={() => setSelectedOption(key)}
-                    className={`flex items-center gap-4 p-5 rounded-2xl border text-left transition-all duration-200 group/option ${cardStyle}`}
-                  >
-                    <span className={`w-8 h-8 rounded-lg border flex items-center justify-center font-bold text-sm transition-all duration-200 ${indicatorStyle}`}>
-                      {key}
-                    </span>
-                    <span className="text-sm font-medium leading-relaxed">{value}</span>
-                  </button>
-                );
-              })}
-          </div>
-
-          <div className="flex justify-end items-center gap-4 border-t border-slate-900/60 pt-6">
-            {!hasSubmitted ? (
-              <button
-                disabled={!selectedOption}
-                onClick={handleSubmitOption}
-                className="px-6 py-3 rounded-xl bg-teal-500 text-slate-950 font-bold text-sm hover:bg-teal-400 hover:shadow-lg hover:shadow-teal-500/20 active:scale-95 disabled:opacity-40 disabled:hover:bg-teal-500 disabled:hover:shadow-none disabled:active:scale-100 transition-all duration-200"
               >
-                Submit Answer
-              </button>
-            ) : (
-              <button
-                onClick={handleNextQuestion}
-                className="px-6 py-3 rounded-xl bg-teal-500 text-slate-950 font-bold text-sm hover:bg-teal-400 hover:shadow-lg hover:shadow-teal-500/20 active:scale-95 transition-all duration-200 flex items-center gap-2"
-              >
-                {currentQuestionIndex < totalQuestions - 1 ? 'Next Question' : 'Finish Practice'}
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
-                </svg>
-              </button>
-            )}
-          </div>
+                {selected === q.correct_option ? '✓ Correct' : '✗ Incorrect'}
+                {selected !== q.correct_option && ` · Answer: ${q.correct_option}`}
+              </div>
 
-          {hasSubmitted && (
-            <div className="mt-8 p-6 bg-slate-950/60 border border-slate-900 rounded-2xl animate-fadeIn">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-teal-400">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
-                </svg>
-                Explanation
-              </h4>
-              <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-line">
-                {currentQuestion.detailed_explanation || 'No explanation provided for this question.'}
+              {/* XP reward */}
+              {selected === q.correct_option && <XpReward xp={10} />}
+
+              {/* Related concepts */}
+              <div className="p-4 rounded-xl" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+                <p className="label mb-2" style={{ color: 'var(--text-muted)' }}>Related concepts</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {['Derivatives', 'Options', 'Risk management'].map(tag => (
+                    <span key={tag} className="text-xs px-2 py-0.5 rounded-md" style={{ background: 'var(--card-raised)', color: 'var(--text-muted)' }}>{tag}</span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Notes */}
+              <NoteInput questionId={q.id} onSave={saveNote} />
+            </div>
+          ) : (
+            <div className="flex-1 flex items-center justify-center">
+              <p className="text-sm text-center" style={{ color: 'var(--text-muted)' }}>
+                Submit your answer to see the explanation.
               </p>
             </div>
           )}
-
         </div>
-      </main>
-    </div>
+
+      </div>
+    </Shell>
   );
 }
