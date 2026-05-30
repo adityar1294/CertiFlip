@@ -4,6 +4,7 @@ import { createSupabaseClient } from '@/lib/supabaseClient';
 export interface Question {
   id: string;
   exam_id: string;
+  question_text: string | null;
   dynamic_options: Record<string, string>;
   correct_option: string;
   detailed_explanation: string;
@@ -41,6 +42,7 @@ export const useQuestions = (examId: string) => {
           const typedQuestions: Question[] = (questions || []).map((q: any) => ({
             id: q.id,
             exam_id: q.exam_id,
+            question_text: q.question_text ?? null,
             dynamic_options: q.dynamic_options as Record<string, string>,
             correct_option: q.correct_option,
             detailed_explanation: q.detailed_explanation,

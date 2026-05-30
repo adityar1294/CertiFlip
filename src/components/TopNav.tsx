@@ -1,7 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
+import { useUser } from '@/contexts/authContext';
 
 /* ── Logo ─────────────────────────────────────────────────────────────── */
 function Logo() {
@@ -177,15 +178,110 @@ export function AppNav({
             🔥 {streak}
           </span>
         )}
-        {/* Avatar placeholder */}
-        <div
-          className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
-          style={{ background: 'var(--card-raised)', color: 'var(--text-secondary)', border: '1px solid var(--card-border)' }}
-        >
-          U
-        </div>
+        <ProfileDropdown />
       </div>
     </nav>
+  );
+}
+
+/* ── Profile dropdown ─────────────────────────────────────────────────── */
+function ProfileDropdown() {
+  const { user, signOut } = useUser();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  const name: string = (user?.user_metadata?.full_name as string | undefined) ?? user?.email ?? 'User';
+  const initial = name.charAt(0).toUpperCase();
+  const email = user?.email ?? '';
+
+  // Close on outside click
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all hover:ring-2"
+        style={{
+          background: 'var(--accent-teal)',
+          color: '#071510',
+        }}
+        aria-label="Profile menu"
+      >
+        {initial}
+      </button>
+
+      {open && (
+        <div
+          className="absolute right-0 top-9 w-52 rounded-2xl shadow-xl z-50 py-1 overflow-hidden animate-fade-in"
+          style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}
+        >
+          {/* User info */}
+          <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--card-border)' }}>
+            <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{name}</p>
+            <p className="text-xs truncate mt-0.5" style={{ color: 'var(--text-muted)' }}>{email}</p>
+          </div>
+
+          {/* Menu items */}
+          <div className="py-1">
+            <Link
+              href="/settings"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2.5 px-4 py-2 text-sm transition-colors hover:bg-white/5"
+              style={{ color: 'var(--text-secondary)' }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+              </svg>
+              Profile
+            </Link>
+            <Link
+              href="/settings"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2.5 px-4 py-2 text-sm transition-colors hover:bg-white/5"
+              style={{ color: 'var(--text-secondary)' }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06-.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+              </svg>
+              Settings
+            </Link>
+            <Link
+              href="/modules"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2.5 px-4 py-2 text-sm transition-colors hover:bg-white/5"
+              style={{ color: 'var(--text-secondary)' }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+                <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+              </svg>
+              My modules
+            </Link>
+          </div>
+
+          <div className="border-t py-1" style={{ borderColor: 'var(--card-border)' }}>
+            <button
+              onClick={() => { setOpen(false); signOut(); }}
+              className="w-full flex items-center gap-2.5 px-4 py-2 text-sm transition-colors hover:bg-white/5"
+              style={{ color: 'var(--danger, #f87171)' }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/>
+              </svg>
+              Sign out
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

@@ -164,12 +164,13 @@ function ModulesContent() {
                         Start studying →
                       </Link>
                     ) : user ? (
-                      <button
+                      <Link
+                        href={`/checkout?module=${exam.code}`}
                         className="px-5 py-2 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
                         style={{ background: a.color, color: '#071510' }}
                       >
                         Purchase →
-                      </button>
+                      </Link>
                     ) : (
                       <Link
                         href={`/signup?next=/modules`}

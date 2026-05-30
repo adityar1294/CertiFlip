@@ -33,7 +33,7 @@ export default function FlashCard({ card, onGotIt, onMissedIt, cardKey }: FlashC
   const correctOptionText = q.dynamic_options[q.correct_option] ?? '';
 
   return (
-    <div className="flex flex-col items-center gap-6 w-full max-w-2xl mx-auto">
+    <div className="flex flex-col items-center gap-6 w-full max-w-3xl mx-auto">
 
       {/* Box badge */}
       <div className="flex items-center gap-2">
@@ -89,7 +89,7 @@ export default function FlashCard({ card, onGotIt, onMissedIt, cardKey }: FlashC
               className="text-base font-medium leading-relaxed text-center px-4"
               style={{ color: 'var(--text-primary)' }}
             >
-              {q.dynamic_options?.question ?? 'No question text available.'}
+              {q.question_text ?? '(Question text not yet added — seed question_text in Supabase.)'}
             </p>
 
             {/* Hint */}
