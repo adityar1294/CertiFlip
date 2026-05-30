@@ -27,8 +27,7 @@ function Logo() {
 export function PublicNav({ activePage }: { activePage?: string }) {
   const links = [
     { href: '/', label: 'Home' },
-    { href: '#exams', label: 'Exams' },
-    { href: '/pricing', label: 'Pricing' },
+    { href: '/modules', label: 'Modules' },
     { href: '#about', label: 'About' },
   ];
 
@@ -96,6 +95,7 @@ export function AppNav({
 }) {
   const navLinks = [
     { href: '/dashboard', label: 'Dashboard' },
+    { href: '/modules', label: 'Modules' },
     { href: '/flashcards', label: 'Flashcards' },
     { href: '/results', label: 'Progress' },
   ];

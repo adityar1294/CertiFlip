@@ -4,7 +4,7 @@ import React from 'react';
 
 interface ShellProps {
   nav: React.ReactNode;
-  toolbar: React.ReactNode;
+  toolbar?: React.ReactNode;
   children: React.ReactNode;
   /** When true, screen card gets all-four rounded corners (short pages: login, etc.) */
   short?: boolean;

@@ -60,6 +60,26 @@ export default function DashboardPage() {
               <div className="w-5 h-5 rounded-full border-2 border-t-transparent" style={{ borderColor: 'var(--accent-teal)', animation: 'spin 0.8s linear infinite' }} />
               <span className="text-sm">Loading modules…</span>
             </div>
+          ) : !exams || exams.length === 0 ? (
+            <div
+              className="flex flex-col items-center justify-center py-20 rounded-2xl text-center"
+              style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}
+            >
+              <div className="text-4xl mb-4">📚</div>
+              <h3 className="font-display text-20 mb-2" style={{ color: 'var(--text-primary)', fontFamily: 'Syne, sans-serif' }}>
+                No modules yet
+              </h3>
+              <p className="text-sm mb-6 max-w-xs" style={{ color: 'var(--text-muted)' }}>
+                Pick a certification module to unlock practice exams, flashcards, and step-by-step solutions.
+              </p>
+              <Link
+                href="/modules"
+                className="px-6 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
+                style={{ background: 'var(--accent-teal)', color: '#071510' }}
+              >
+                Browse modules →
+              </Link>
+            </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {exams?.map((exam, i) => {

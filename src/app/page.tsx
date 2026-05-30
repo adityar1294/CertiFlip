@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import Shell from '@/components/Shell';
 import { PublicNav } from '@/components/TopNav';
-import { PreAuthToolbar } from '@/components/Toolbar';
+
 
 const features = [
   { icon: '🧠', title: 'Spaced repetition', desc: 'Leitner system schedules your reviews at optimal intervals, so you never forget what you\'ve learned.' },
@@ -48,7 +48,7 @@ const exams = [
 
 export default function LandingPage() {
   return (
-    <Shell nav={<PublicNav activePage="Home" />} toolbar={<PreAuthToolbar />}>
+    <Shell nav={<PublicNav activePage="Home" />}>
       <div className="px-6 pb-24 space-y-24">
 
         {/* Hero */}
@@ -82,11 +82,11 @@ export default function LandingPage() {
               Start free — no card needed →
             </Link>
             <Link
-              href="#exams"
+              href="/modules"
               className="px-6 py-3 rounded-xl text-sm font-medium transition-all"
               style={{ background: 'var(--card-raised)', color: 'var(--text-secondary)', border: '1px solid var(--card-border)', borderRadius: 'var(--radius-xl)' }}
             >
-              Browse exams
+              Browse modules
             </Link>
           </div>
 
@@ -182,8 +182,8 @@ export default function LandingPage() {
               <Link href="/signup" className="px-6 py-3 rounded-xl text-sm font-semibold transition-all hover:opacity-90" style={{ background: 'var(--accent-teal)', color: '#071510' }}>
                 Get started free →
               </Link>
-              <Link href="/pricing" className="px-6 py-3 rounded-xl text-sm font-medium" style={{ color: 'var(--text-secondary)', border: '1px solid var(--card-border)', background: 'var(--card-raised)' }}>
-                View pricing
+              <Link href="/modules" className="px-6 py-3 rounded-xl text-sm font-medium" style={{ color: 'var(--text-secondary)', border: '1px solid var(--card-border)', background: 'var(--card-raised)' }}>
+                Browse modules
               </Link>
             </div>
           </div>

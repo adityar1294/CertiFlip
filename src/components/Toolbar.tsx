@@ -149,8 +149,7 @@ export function PreAuthToolbar() {
       }}
     >
       <ToolbarItem href="/" icon={<HomeIcon />} label="Home" active={pathname === '/'} />
-      <ToolbarItem href="#exams" icon={<ExamsIcon />} label="Exams" />
-      <ToolbarItem href="/pricing" icon={<PricingIcon />} label="Pricing" active={pathname === '/pricing'} />
+      <ToolbarItem href="/modules" icon={<ExamsIcon />} label="Modules" active={pathname === '/modules'} />
       <Divider />
       <ToolbarItem href="/login" icon={<LoginIcon />} label="Log in" active={pathname === '/login'} />
       <ToolbarItem href="/signup" icon={<PlusIcon />} label="Get started" accent />
@@ -169,6 +168,7 @@ export function AppToolbar({ activePage, streak }: { activePage?: string; streak
       }}
     >
       <ToolbarItem href="/dashboard" icon={<DashboardIcon />} label="Dashboard" active={activePage === 'Dashboard'} />
+      <ToolbarItem href="/modules" icon={<ExamsIcon />} label="Modules" active={activePage === 'Modules'} />
       <ToolbarItem href="/flashcards" icon={<FlashcardsIcon />} label="Flashcards" active={activePage === 'Flashcards'} />
       <ToolbarItem href="/results" icon={<ProgressIcon />} label="Progress" active={activePage === 'Progress'} />
       <Divider />
