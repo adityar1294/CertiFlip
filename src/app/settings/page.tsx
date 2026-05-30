@@ -8,8 +8,14 @@ import { AppNav } from '@/components/TopNav';
 import { AppToolbar } from '@/components/Toolbar';
 import { useUser } from '@/contexts/authContext';
 import { createSupabaseClient } from '@/lib/supabaseClient';
+import {
+  getPaymentConfig,
+  savePaymentConfig,
+  clearDemoPurchases,
+  type PaymentConfig,
+} from '@/lib/paymentConfig';
 
-type Tab = 'Profile' | 'Security' | 'Billing' | 'Notifications' | 'Study' | 'Export';
+type Tab = 'Profile' | 'Security' | 'Billing' | 'Payments' | 'Notifications' | 'Study' | 'Export';
 
 const PREFS_KEY = 'certiflip_prefs';
 const defaultPrefs = {
@@ -72,12 +78,18 @@ export default function SettingsPage() {
   // ── Delete account ─────────────────────────────────────────────────────
   const [deleteConfirm, setDeleteConfirm] = useState('');
 
+  // ── Payment config ─────────────────────────────────────────────────────
+  const [payConfig, setPayConfig] = useState<PaymentConfig>({ mode: 'demo', keyId: '', keySecret: '' });
+  const [payConfigSaved, setPayConfigSaved] = useState(false);
+  const [demoPurchasesCleared, setDemoPurchasesCleared] = useState(false);
+
   useEffect(() => {
     if (user) {
       setDisplayName((user.user_metadata?.full_name as string) ?? '');
     }
     const stored = localStorage.getItem(PREFS_KEY);
     if (stored) { try { setPrefs(JSON.parse(stored)); } catch { /* ignore */ } }
+    setPayConfig(getPaymentConfig());
   }, [user]);
 
   const name = displayName || user?.email || 'User';
@@ -122,6 +134,18 @@ export default function SettingsPage() {
     URL.revokeObjectURL(url);
   }
 
+  function savePaymentSettings() {
+    savePaymentConfig(payConfig);
+    setPayConfigSaved(true);
+    setTimeout(() => setPayConfigSaved(false), 2500);
+  }
+
+  function handleClearDemoPurchases() {
+    clearDemoPurchases();
+    setDemoPurchasesCleared(true);
+    setTimeout(() => setDemoPurchasesCleared(false), 2500);
+  }
+
   async function handleSignOut() {
     await signOut();
     router.push('/');
@@ -132,6 +156,7 @@ export default function SettingsPage() {
       { id: 'Profile' as Tab, label: 'Profile', icon: '👤' },
       { id: 'Security' as Tab, label: 'Security', icon: '🔒' },
       { id: 'Billing' as Tab, label: 'Billing', icon: '💳' },
+      { id: 'Payments' as Tab, label: 'Payments', icon: '⚡' },
     ]},
     { heading: 'Preferences', items: [
       { id: 'Notifications' as Tab, label: 'Notifications', icon: '🔔' },
@@ -151,7 +176,7 @@ export default function SettingsPage() {
 
         <div className="flex gap-8">
           {/* Sidebar */}
-          <aside className="w-48 shrink-0 space-y-6">
+          <aside className="w-48 shrink-0 space-y-6 sticky top-24 self-start">
             {sidebarSections.map(sec => (
               <div key={sec.heading}>
                 <p className="label mb-2 px-3" style={{ color: 'var(--text-muted)' }}>{sec.heading}</p>
@@ -364,6 +389,127 @@ export default function SettingsPage() {
                 <button onClick={savePrefs} className="px-5 py-2 rounded-xl text-sm font-semibold transition-all hover:opacity-90" style={{ background: 'var(--accent-teal)', color: '#071510' }}>
                   {prefsSaved ? '✓ Saved!' : 'Save preferences'}
                 </button>
+              </div>
+            )}
+
+            {/* ── PAYMENTS ─────────────────────────────────────────── */}
+            {activeTab === 'Payments' && (
+              <div className="space-y-5">
+                {/* Mode toggle */}
+                <div className="p-5 rounded-2xl space-y-5" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+                  <div>
+                    <h3 className="font-display text-15 mb-1" style={{ color: 'var(--text-secondary)', fontFamily: 'Syne, sans-serif' }}>Payment mode</h3>
+                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                      Demo mode simulates successful payments and unlocks modules locally. Switch to Live once your Razorpay account is ready.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-4">
+                    <button
+                      onClick={() => setPayConfig(c => ({ ...c, mode: 'demo' }))}
+                      className="flex-1 py-3 rounded-xl text-sm font-semibold transition-all border"
+                      style={payConfig.mode === 'demo'
+                        ? { background: 'var(--accent-teal-bg)', color: 'var(--accent-teal)', border: '2px solid var(--accent-teal)' }
+                        : { background: 'var(--card-raised)', color: 'var(--text-muted)', border: '1px solid var(--card-border)' }}
+                    >
+                      🧪 Demo mode
+                    </button>
+                    <button
+                      onClick={() => setPayConfig(c => ({ ...c, mode: 'live' }))}
+                      className="flex-1 py-3 rounded-xl text-sm font-semibold transition-all border"
+                      style={payConfig.mode === 'live'
+                        ? { background: 'rgba(251,191,36,0.1)', color: 'var(--accent-amber)', border: '2px solid var(--accent-amber)' }
+                        : { background: 'var(--card-raised)', color: 'var(--text-muted)', border: '1px solid var(--card-border)' }}
+                    >
+                      ⚡ Live (Razorpay)
+                    </button>
+                  </div>
+
+                  {payConfig.mode === 'demo' && (
+                    <div
+                      className="flex items-start gap-3 px-4 py-3 rounded-xl text-sm"
+                      style={{ background: 'var(--accent-teal-bg)', border: '1px solid var(--accent-teal-border)', color: 'var(--accent-teal)' }}
+                    >
+                      <span className="shrink-0 mt-0.5">✓</span>
+                      <span>Demo mode is active. All checkout flows will simulate a successful payment and unlock modules in your browser.</span>
+                    </div>
+                  )}
+
+                  {payConfig.mode === 'live' && (
+                    <div
+                      className="flex items-start gap-3 px-4 py-3 rounded-xl text-sm"
+                      style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid var(--accent-amber-border)', color: 'var(--accent-amber)' }}
+                    >
+                      <span className="shrink-0 mt-0.5">⚠</span>
+                      <span>Live mode enabled. Real payments will be attempted via Razorpay. Enter your API keys below before going live.</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Razorpay keys */}
+                <div className="p-5 rounded-2xl space-y-4" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+                  <div>
+                    <h3 className="font-display text-15 mb-1" style={{ color: 'var(--text-secondary)', fontFamily: 'Syne, sans-serif' }}>Razorpay API keys</h3>
+                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                      Get these from your <span style={{ color: 'var(--accent-teal)' }}>Razorpay Dashboard → Settings → API Keys</span>.
+                      Keys are saved only in your browser&apos;s local storage.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="label block mb-1.5" style={{ color: 'var(--text-muted)' }}>Key ID</label>
+                    <input
+                      value={payConfig.keyId}
+                      onChange={e => setPayConfig(c => ({ ...c, keyId: e.target.value }))}
+                      placeholder="rzp_live_xxxxxxxxxxxx  or  rzp_test_xxxxxxxxxxxx"
+                      style={inputStyle}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="label block mb-1.5" style={{ color: 'var(--text-muted)' }}>Key Secret</label>
+                    <input
+                      type="password"
+                      value={payConfig.keySecret}
+                      onChange={e => setPayConfig(c => ({ ...c, keySecret: e.target.value }))}
+                      placeholder="Your Razorpay secret key"
+                      style={inputStyle}
+                    />
+                    <p className="text-xs mt-1.5" style={{ color: 'var(--text-muted)' }}>
+                      ⚠ The secret key is stored in localStorage and only used client-side during development. Move it server-side before production.
+                    </p>
+                  </div>
+
+                  {payConfigSaved && (
+                    <p className="text-sm" style={{ color: 'var(--accent-teal)' }}>✓ Payment settings saved!</p>
+                  )}
+
+                  <button
+                    onClick={savePaymentSettings}
+                    className="px-5 py-2 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
+                    style={{ background: 'var(--accent-teal)', color: '#071510' }}
+                  >
+                    Save payment settings
+                  </button>
+                </div>
+
+                {/* Demo purchases */}
+                <div className="p-5 rounded-2xl space-y-3" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+                  <h3 className="font-display text-15 mb-1" style={{ color: 'var(--text-secondary)', fontFamily: 'Syne, sans-serif' }}>Demo purchases</h3>
+                  <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                    Modules you&apos;ve &quot;purchased&quot; in demo mode are tracked in your browser. Clear them to reset the locked/unlocked state.
+                  </p>
+                  {demoPurchasesCleared && (
+                    <p className="text-sm" style={{ color: 'var(--accent-teal)' }}>✓ Demo purchases cleared!</p>
+                  )}
+                  <button
+                    onClick={handleClearDemoPurchases}
+                    className="px-5 py-2 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
+                    style={{ background: 'var(--card-raised)', color: 'var(--text-secondary)', border: '1px solid var(--card-border)' }}
+                  >
+                    Clear demo purchases
+                  </button>
+                </div>
               </div>
             )}
 

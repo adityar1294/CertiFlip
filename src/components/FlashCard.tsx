@@ -64,7 +64,7 @@ export default function FlashCard({ card, onGotIt, onMissedIt, cardKey }: FlashC
             transition: 'transform 0.55s cubic-bezier(0.4, 0, 0.2, 1)',
             transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
             position: 'relative',
-            minHeight: '280px',
+            minHeight: '340px',
           }}
         >
           {/* ── FRONT — Question ─────────────────────────────────── */}
@@ -84,13 +84,35 @@ export default function FlashCard({ card, onGotIt, onMissedIt, cardKey }: FlashC
               <span className="text-xs" style={{ color: 'var(--text-muted)' }}>tap to reveal →</span>
             </div>
 
-            {/* Question text */}
-            <p
-              className="text-base font-medium leading-relaxed text-center px-4"
-              style={{ color: 'var(--text-primary)' }}
-            >
-              {q.question_text ?? '(Question text not yet added — seed question_text in Supabase.)'}
-            </p>
+            {/* Question text or MCQ options */}
+            {q.question_text ? (
+              <p
+                className="text-base font-medium leading-relaxed text-center px-4"
+                style={{ color: 'var(--text-primary)' }}
+              >
+                {q.question_text}
+              </p>
+            ) : (
+              <div className="flex flex-col gap-2.5 w-full">
+                <p className="text-xs text-center mb-1" style={{ color: 'var(--text-muted)' }}>
+                  Which of the following is correct?
+                </p>
+                {(['A', 'B', 'C', 'D'] as const).map(key => {
+                  const text = q.dynamic_options[key];
+                  if (!text) return null;
+                  return (
+                    <div
+                      key={key}
+                      className="flex items-start gap-2.5 px-4 py-2.5 rounded-xl text-sm"
+                      style={{ background: 'var(--card-raised)', border: '1px solid var(--card-border)' }}
+                    >
+                      <span className="font-bold shrink-0 w-5 text-center" style={{ color: 'var(--text-muted)' }}>{key}.</span>
+                      <span style={{ color: 'var(--text-primary)' }}>{text}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
             {/* Hint */}
             <div className="flex items-center justify-center gap-2">

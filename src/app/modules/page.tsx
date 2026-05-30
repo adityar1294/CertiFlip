@@ -8,6 +8,7 @@ import { AppNav } from '@/components/TopNav';
 import { AppToolbar } from '@/components/Toolbar';
 import { useExams } from '@/hooks/useExams';
 import { useUser } from '@/contexts/authContext';
+import { getDemoPurchases } from '@/lib/paymentConfig';
 
 /* Hardcoded prices (INR) until a price column exists in Supabase */
 const MODULE_PRICES: Record<string, number> = {
@@ -41,8 +42,11 @@ function ModulesContent() {
   const { data: exams, loading, error } = useExams();
   const { user } = useUser();
 
-  /* placeholder — replace with real purchase query when payments land */
-  const purchasedCodes = new Set<string>();
+  /* Demo purchases from localStorage; will be replaced with a real DB query when payments go live */
+  const [purchasedCodes, setPurchasedCodes] = React.useState<Set<string>>(new Set());
+  React.useEffect(() => {
+    setPurchasedCodes(new Set(getDemoPurchases()));
+  }, []);
 
   const nav = user
     ? <AppNav activePage="Modules" />

@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import Shell from '@/components/Shell';
 import { AppNav } from '@/components/TopNav';
 import { AppToolbar } from '@/components/Toolbar';
+import { getPaymentConfig, addDemoPurchase } from '@/lib/paymentConfig';
 
 type PaymentMethod = 'card' | 'upi' | 'netbanking';
 
@@ -98,6 +99,8 @@ function CheckoutContent() {
   const gstAmt = Math.round(subtotal * 0.18);
   const total = subtotal + gstAmt;
 
+  const payConfig = getPaymentConfig();
+  const isDemoMode = payConfig.mode === 'demo';
   const [method, setMethod] = useState<PaymentMethod>('card');
   const [cardName, setCardName] = useState('');
   const [cardNumber, setCardNumber] = useState('');
@@ -119,8 +122,16 @@ function CheckoutContent() {
 
   async function handlePay() {
     setPaying(true);
-    // Simulate payment processing delay
-    await new Promise(r => setTimeout(r, 2000));
+    const config = getPaymentConfig();
+    if (config.mode === 'demo') {
+      // Simulate payment processing delay, then save to localStorage
+      await new Promise(r => setTimeout(r, 2000));
+      if (moduleCode) addDemoPurchase(moduleCode);
+    } else {
+      // Live Razorpay flow (wired up when keys are set)
+      await new Promise(r => setTimeout(r, 2000));
+      // TODO: call Razorpay order creation endpoint, then open Razorpay SDK checkout
+    }
     setPaying(false);
     setSuccess(true);
   }
@@ -172,20 +183,28 @@ function CheckoutContent() {
           {/* Left — payment form */}
           <div className="space-y-5">
 
-            {/* Demo banner */}
-            <div className="flex items-start gap-3 px-4 py-3 rounded-xl text-sm"
-              style={{ background: 'var(--accent-amber-bg)', border: '1px solid var(--accent-amber-border)' }}>
-              <span>⚠️</span>
-              <div style={{ color: 'var(--accent-amber)' }}>
-                <strong>Demo mode</strong> — no real payment will be taken.
-                <button onClick={fillTestCard} className="ml-2 underline font-medium" style={{ color: 'var(--accent-teal)' }}>
-                  Fill test card
-                </button>
-                <span className="block text-xs mt-0.5 opacity-70">
-                  Test card: {TEST_CARD.number} · {TEST_CARD.expiry} · CVV {TEST_CARD.cvv}
-                </span>
+            {/* Demo / Live banner */}
+            {isDemoMode ? (
+              <div className="flex items-start gap-3 px-4 py-3 rounded-xl text-sm"
+                style={{ background: 'var(--accent-amber-bg)', border: '1px solid var(--accent-amber-border)' }}>
+                <span>🧪</span>
+                <div style={{ color: 'var(--accent-amber)' }}>
+                  <strong>Demo mode</strong> — no real payment will be taken.
+                  <button onClick={fillTestCard} className="ml-2 underline font-medium" style={{ color: 'var(--accent-teal)' }}>
+                    Fill test card
+                  </button>
+                  <span className="block text-xs mt-0.5 opacity-70">
+                    Test card: {TEST_CARD.number} · {TEST_CARD.expiry} · CVV {TEST_CARD.cvv}
+                  </span>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm"
+                style={{ background: 'var(--accent-teal-bg)', border: '1px solid var(--accent-teal-border)', color: 'var(--accent-teal)' }}>
+                <span>⚡</span>
+                <strong>Live mode</strong> — this is a real payment via Razorpay.
+              </div>
+            )}
 
             {/* Method selector */}
             <div className="grid grid-cols-3 gap-3">
@@ -273,7 +292,7 @@ function CheckoutContent() {
               )}
             </button>
             <p className="text-center text-xs" style={{ color: 'var(--text-muted)' }}>
-              Payments secured by Razorpay · 256-bit SSL (demo mode)
+              Payments secured by Razorpay · 256-bit SSL {isDemoMode ? '· 🧪 Demo mode' : '· ⚡ Live mode'}
             </p>
           </div>
 
