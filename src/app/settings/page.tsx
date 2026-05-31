@@ -169,12 +169,12 @@ export default function SettingsPage() {
 
   return (
     <Shell nav={<AppNav activePage="Settings" />} toolbar={<AppToolbar activePage="Settings" />}>
-      <div className="max-w-5xl mx-auto px-6 py-10 pb-28">
+      <div className="w-full max-w-5xl mx-auto px-6 py-10 pb-28">
         <h1 className="font-display text-36 mb-8" style={{ color: 'var(--text-primary)', fontFamily: 'Syne, sans-serif' }}>
           Settings
         </h1>
 
-        <div className="flex gap-8">
+        <div className="flex gap-8 w-full items-start">
           {/* Sidebar */}
           <aside className="w-48 shrink-0 space-y-6 sticky top-24 self-start">
             {sidebarSections.map(sec => (
