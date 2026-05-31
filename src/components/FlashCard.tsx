@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import type { ReviewCard } from '@/hooks/useCardReview';
 
-/* ── Box accent colours ────────────────────────────────────────────────── */
 const BOX_ACCENT: Record<number, { color: string; bg: string; border: string; label: string }> = {
   1: { color: 'var(--accent-coral)',   bg: 'var(--accent-coral-bg)',   border: 'var(--accent-coral-border)',   label: 'New' },
   2: { color: 'var(--accent-amber)',   bg: 'var(--accent-amber-bg)',   border: 'var(--accent-amber-border)',   label: 'Learning' },
@@ -16,27 +15,46 @@ interface FlashCardProps {
   card: ReviewCard;
   onGotIt: () => void;
   onMissedIt: () => void;
-  /** Reset flip state when card changes */
   cardKey: string | number;
 }
 
 export default function FlashCard({ card, onGotIt, onMissedIt, cardKey }: FlashCardProps) {
-  const [flipped, setFlipped] = useState(false);
+  const [selected, setSelected] = useState<string | null>(null);
 
-  // Reset flip state whenever the card changes
   useEffect(() => {
-    setFlipped(false);
+    setSelected(null);
   }, [cardKey]);
 
   const q = card.question;
   const boxAccent = BOX_ACCENT[card.currentBox] ?? BOX_ACCENT[1];
-  const correctOptionText = q.dynamic_options[q.correct_option] ?? '';
+  const opts = q.dynamic_options as Record<string, string>;
+
+  // Question text lives in dynamic_options.question (always populated)
+  const questionText = opts.question ?? q.question_text ?? '';
+
+  const optionKeys = (['A', 'B', 'C', 'D'] as const).filter(k => opts[k]);
+
+  const submitted = selected !== null;
+  const isCorrect = selected === q.correct_option;
+
+  const getOptionStyle = (key: string): React.CSSProperties => {
+    const isSelected = key === selected;
+    const isCorrectKey = key === q.correct_option;
+
+    if (submitted) {
+      if (isCorrectKey) return { background: 'var(--accent-teal-bg)', border: '1px solid var(--accent-teal)', color: 'var(--accent-teal)' };
+      if (isSelected)  return { background: 'var(--accent-coral-bg)', border: '1px solid var(--accent-coral-border)', color: 'var(--accent-coral)' };
+      return { background: 'var(--card-bg)', border: '1px solid var(--card-border)', color: 'var(--text-muted)', opacity: 0.4 };
+    }
+    if (isSelected) return { background: 'var(--accent-teal-bg)', border: '1px solid var(--accent-teal)', color: 'var(--accent-teal)' };
+    return { background: 'var(--card-raised)', border: '1px solid var(--card-border)', color: 'var(--text-secondary)' };
+  };
 
   return (
-    <div className="flex flex-col gap-6 w-full max-w-3xl mx-auto">
+    <div className="w-full flex flex-col gap-4">
 
-      {/* Box badge */}
-      <div className="flex items-center justify-center gap-2">
+      {/* Badge row */}
+      <div className="flex items-center gap-2 flex-wrap">
         <span
           className="label px-2.5 py-1 rounded-full"
           style={{ color: boxAccent.color, background: boxAccent.bg, border: `1px solid ${boxAccent.border}` }}
@@ -48,178 +66,82 @@ export default function FlashCard({ card, onGotIt, onMissedIt, cardKey }: FlashC
             New card
           </span>
         )}
-      </div>
-
-      {/* ── 3D flip card ───────────────────────────────────────────── */}
-      <div
-        className="w-full cursor-pointer select-none"
-        style={{ perspective: '1200px' }}
-        onClick={() => !flipped && setFlipped(true)}
-        role="button"
-        aria-label={flipped ? 'Card showing answer' : 'Click to reveal answer'}
-      >
-        <div
-          style={{
-            transformStyle: 'preserve-3d',
-            transition: 'transform 0.55s cubic-bezier(0.4, 0, 0.2, 1)',
-            transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
-            position: 'relative',
-            width: '100%',
-            minHeight: '340px',
-          }}
-        >
-          {/* ── FRONT — Question ─────────────────────────────────── */}
-          <div
-            className="absolute inset-0 flex flex-col justify-between p-8 rounded-3xl"
-            style={{
-              backfaceVisibility: 'hidden',
-              WebkitBackfaceVisibility: 'hidden',
-              background: 'var(--card-bg)',
-              border: `1px solid ${boxAccent.border}`,
-              boxShadow: '0 8px 32px rgba(0,0,0,0.24)',
-            }}
-          >
-            {/* Front label */}
-            <div className="flex items-center justify-between">
-              <span className="label" style={{ color: 'var(--accent-teal)' }}>Question</span>
-              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>tap to reveal →</span>
-            </div>
-
-            {/* Question text or MCQ options */}
-            {q.question_text ? (
-              <p
-                className="text-base font-medium leading-relaxed text-center px-4"
-                style={{ color: 'var(--text-primary)' }}
-              >
-                {q.question_text}
-              </p>
-            ) : (
-              <div className="flex flex-col gap-2.5 w-full">
-                <p className="text-xs text-center mb-1" style={{ color: 'var(--text-muted)' }}>
-                  Which of the following is correct?
-                </p>
-                {(['A', 'B', 'C', 'D'] as const).map(key => {
-                  const text = q.dynamic_options[key];
-                  if (!text) return null;
-                  return (
-                    <div
-                      key={key}
-                      className="flex items-start gap-2.5 px-4 py-2.5 rounded-xl text-sm"
-                      style={{ background: 'var(--card-raised)', border: '1px solid var(--card-border)' }}
-                    >
-                      <span className="font-bold shrink-0 w-5 text-center" style={{ color: 'var(--text-muted)' }}>{key}.</span>
-                      <span style={{ color: 'var(--text-primary)' }}>{text}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Hint */}
-            <div className="flex items-center justify-center gap-2">
-              <div className="w-8 h-0.5 rounded" style={{ background: 'var(--card-border)' }} />
-              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>think before revealing</span>
-              <div className="w-8 h-0.5 rounded" style={{ background: 'var(--card-border)' }} />
-            </div>
-          </div>
-
-          {/* ── BACK — Answer ────────────────────────────────────── */}
-          <div
-            className="absolute inset-0 flex flex-col justify-between p-8 rounded-3xl"
-            style={{
-              backfaceVisibility: 'hidden',
-              WebkitBackfaceVisibility: 'hidden',
-              transform: 'rotateY(180deg)',
-              background: 'var(--card-raised)',
-              border: `1px solid ${boxAccent.border}`,
-              boxShadow: '0 8px 32px rgba(0,0,0,0.24)',
-            }}
-          >
-            {/* Back label */}
-            <div className="flex items-center justify-between">
-              <span className="label" style={{ color: 'var(--text-muted)' }}>Answer</span>
-              <span
-                className="label px-2 py-0.5 rounded"
-                style={{ color: boxAccent.color, background: boxAccent.bg, border: `1px solid ${boxAccent.border}` }}
-              >
-                {q.correct_option}
-              </span>
-            </div>
-
-            {/* Correct answer */}
-            <div
-              className="flex-1 flex flex-col items-center justify-center gap-3 py-4"
-            >
-              <div
-                className="w-full px-5 py-4 rounded-2xl text-center"
-                style={{
-                  background: 'var(--accent-teal-bg)',
-                  border: '1px solid var(--accent-teal-border)',
-                }}
-              >
-                <span className="text-xs font-bold mr-2" style={{ color: 'var(--accent-teal)' }}>
-                  {q.correct_option}.
-                </span>
-                <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                  {correctOptionText}
-                </span>
-              </div>
-
-              {/* Brief explanation */}
-              {q.detailed_explanation && (
-                <p
-                  className="text-xs leading-relaxed text-center line-clamp-4 px-2"
-                  style={{ color: 'var(--text-secondary)' }}
-                >
-                  {q.detailed_explanation}
-                </p>
-              )}
-            </div>
-
-            {/* Spacer to match front layout */}
-            <div className="h-4" />
-          </div>
+        <div className="ml-auto text-xs font-medium">
+          {submitted ? (
+            isCorrect
+              ? <span style={{ color: 'var(--accent-teal)' }}>✓ Correct</span>
+              : <span style={{ color: 'var(--accent-coral)' }}>✗ Incorrect · Answer: {q.correct_option}</span>
+          ) : (
+            <span style={{ color: 'var(--text-muted)' }}>Select the correct answer</span>
+          )}
         </div>
       </div>
 
-      {/* ── Rating buttons — only visible after flip ─────────────────── */}
+      {/* Card body */}
       <div
-        className="flex gap-4 w-full transition-all duration-300"
-        style={{ opacity: flipped ? 1 : 0, pointerEvents: flipped ? 'auto' : 'none', transform: flipped ? 'translateY(0)' : 'translateY(8px)' }}
+        className="w-full rounded-3xl p-8 flex flex-col gap-6"
+        style={{
+          background: 'var(--card-bg)',
+          border: `1px solid ${submitted ? (isCorrect ? 'var(--accent-teal-border)' : 'var(--accent-coral-border)') : boxAccent.border}`,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.24)',
+          transition: 'border-color 0.3s ease',
+        }}
       >
-        <button
-          onClick={onMissedIt}
-          className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-semibold transition-all hover:opacity-90 active:scale-95"
-          style={{
-            background: 'var(--accent-coral-bg)',
-            border: '1px solid var(--accent-coral-border)',
-            color: 'var(--accent-coral)',
-          }}
-        >
-          <span className="text-lg">✗</span>
-          Missed it
-        </button>
-
-        <button
-          onClick={onGotIt}
-          className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-semibold transition-all hover:opacity-90 active:scale-95"
-          style={{
-            background: 'var(--accent-teal-bg)',
-            border: '1px solid var(--accent-teal-border)',
-            color: 'var(--accent-teal)',
-          }}
-        >
-          <span className="text-lg">✓</span>
-          Got it
-        </button>
-      </div>
-
-      {/* Tap hint when not yet flipped */}
-      {!flipped && (
-        <p className="text-xs animate-pulse text-center" style={{ color: 'var(--text-muted)' }}>
-          Tap the card to reveal the answer
+        {/* Question */}
+        <p className="text-base font-medium leading-relaxed" style={{ color: 'var(--text-primary)', fontSize: '15px' }}>
+          {questionText}
         </p>
-      )}
+
+        {/* Options — 2-col on md+ */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {optionKeys.map(key => (
+            <button
+              key={key}
+              disabled={submitted}
+              onClick={() => setSelected(key)}
+              className="flex items-start gap-3 px-4 py-3.5 rounded-xl text-sm text-left transition-all duration-200 disabled:cursor-default"
+              style={{ ...getOptionStyle(key), borderRadius: 'var(--radius-lg)' }}
+            >
+              <span
+                className="w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold shrink-0 mt-0.5"
+                style={{ background: 'rgba(255,255,255,0.08)' }}
+              >
+                {key}
+              </span>
+              <span className="leading-relaxed">{opts[key]}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Explanation */}
+        {submitted && q.detailed_explanation && (
+          <div
+            className="px-4 py-3 rounded-xl text-sm leading-relaxed animate-fade-in"
+            style={{ background: 'var(--card-raised)', borderLeft: '3px solid var(--accent-teal)', color: 'var(--text-secondary)' }}
+          >
+            {q.detailed_explanation}
+          </div>
+        )}
+
+        {/* CTA */}
+        {submitted ? (
+          <button
+            onClick={() => isCorrect ? onGotIt() : onMissedIt()}
+            className="w-full py-3.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
+            style={{
+              background: isCorrect ? 'var(--accent-teal)' : 'var(--card-raised)',
+              color: isCorrect ? '#071510' : 'var(--text-secondary)',
+              border: isCorrect ? 'none' : '1px solid var(--card-border)',
+            }}
+          >
+            Next card →
+          </button>
+        ) : (
+          <p className="text-xs text-center" style={{ color: 'var(--text-muted)' }}>
+            Tap an option to answer
+          </p>
+        )}
+      </div>
     </div>
   );
 }

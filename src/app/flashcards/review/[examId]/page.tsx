@@ -9,6 +9,7 @@ import FlashCard from '@/components/FlashCard';
 import ReviewProgress from '@/components/ReviewProgress';
 import LeitnerBar from '@/components/LeitnerBar';
 import { useCardReview, LEITNER_INTERVALS } from '@/hooks/useCardReview';
+import { useExams } from '@/hooks/useExams';
 
 /* ── Session complete screen ───────────────────────────────────────────── */
 function SessionComplete({
@@ -154,6 +155,9 @@ export default function ReviewPage({
 }) {
   const { examId } = use(params);
 
+  const { data: exams } = useExams();
+  const examCode = exams?.find(e => e.id === examId)?.code ?? examId;
+
   const {
     queue,
     currentCard,
@@ -245,7 +249,7 @@ export default function ReviewPage({
       >
         <SessionComplete
           results={results}
-          examCode={examId}
+          examCode={examCode}
           onRestart={() => window.location.reload()}
         />
       </Shell>
@@ -267,13 +271,13 @@ export default function ReviewPage({
               history.back();
             }
           }}
-          examCode={examId}
+          examCode={examCode}
           questionInfo={`${currentIndex + 1} / ${total}`}
         />
       }
       toolbar={<AppToolbar activePage="Flashcards" />}
     >
-      <div className="max-w-3xl mx-auto px-6 py-8 pb-28 flex flex-col gap-8">
+      <div className="max-w-5xl mx-auto px-6 py-8 pb-28 flex flex-col gap-6">
 
         {/* Progress */}
         <ReviewProgress
