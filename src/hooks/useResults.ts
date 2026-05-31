@@ -4,7 +4,7 @@ import { createSupabaseClient } from '@/lib/supabaseClient';
 export interface ExamAttempt {
   id: string;
   exam_id: string;
-  created_at: string;
+  completed_at: string;
   score: number | null;
   total_questions: number | null;
 }
@@ -30,7 +30,7 @@ export function useResults() {
         const { data: attempts, error: err } = await supabase
           .from('exam_attempts')
           .select('*')
-          .order('created_at', { ascending: false })
+          .order('completed_at', { ascending: false })
           .limit(50);
 
         if (err) throw err;

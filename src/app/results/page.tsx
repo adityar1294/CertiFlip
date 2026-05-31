@@ -32,7 +32,7 @@ export default function ResultsPage() {
   const now = Date.now();
   const filteredAttempts = (data?.attempts ?? []).filter(a => {
     if (filter === 'All time') return true;
-    const diff = now - new Date(a.created_at).getTime();
+    const diff = now - new Date(a.completed_at).getTime();
     if (filter === 'This week') return diff < 7 * 864e5;
     if (filter === 'This month') return diff < 30 * 864e5;
     return true;
@@ -47,7 +47,7 @@ export default function ResultsPage() {
   }, 0);
   const accuracy = totalQ > 0 ? Math.round((totalCorrect / totalQ) * 100) : 0;
   const xp = filteredAttempts.length * 50;
-  const streak = computeStreak((data?.attempts ?? []).map(a => a.created_at));
+  const streak = computeStreak((data?.attempts ?? []).map(a => a.completed_at));
 
   // Last 7 sessions for chart
   const chartSessions = [...filteredAttempts].slice(0, 7).reverse();
@@ -115,7 +115,7 @@ export default function ResultsPage() {
                   const score = a.score ?? 0;
                   const heightPct = (score / 100) * 80;
                   const isLast = i === chartSessions.length - 1;
-                  const day = DAY_ABBR[new Date(a.created_at).getDay()];
+                  const day = DAY_ABBR[new Date(a.completed_at).getDay()];
                   return (
                     <div key={a.id} className="flex-1 flex flex-col items-center gap-1" title={`${score}%`}>
                       <div
@@ -224,7 +224,7 @@ export default function ResultsPage() {
                         {exam?.title ?? 'Practice'} Practice
                       </p>
                       <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                        {formatSessionTime(a.created_at)} · {a.total_questions ?? 0} questions
+                        {formatSessionTime(a.completed_at)} · {a.total_questions ?? 0} questions
                       </p>
                     </div>
                     <span className="label px-2 py-0.5 rounded" style={typeBadge['Practice']}>

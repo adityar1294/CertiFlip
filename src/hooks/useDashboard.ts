@@ -75,8 +75,8 @@ export function useDashboard() {
           supabase.from('exams').select('id, title, code'),
           supabase
             .from('exam_attempts')
-            .select('id, exam_id, created_at, score, total_questions')
-            .order('created_at', { ascending: false })
+            .select('id, exam_id, completed_at, score, total_questions')
+            .order('completed_at', { ascending: false })
             .limit(50),
           supabase
             .from('user_card_state')
@@ -91,7 +91,7 @@ export function useDashboard() {
         const typedAttempts = (attempts ?? []) as {
           id: string;
           exam_id: string;
-          created_at: string;
+          completed_at: string;
           score: number | null;
           total_questions: number | null;
         }[];
@@ -112,7 +112,7 @@ export function useDashboard() {
             examTitle: exam ? exam.title : 'Practice',
             examCode: exam ? exam.code : '',
             score: a.score ?? 0,
-            createdAt: a.created_at,
+            createdAt: a.completed_at,
           };
         });
 
@@ -131,7 +131,7 @@ export function useDashboard() {
         setData({
           totalDue: (cardStates ?? []).length,
           totalXp: typedAttempts.length * 50,
-          streak: computeStreak(typedAttempts.map(a => a.created_at)),
+          streak: computeStreak(typedAttempts.map(a => a.completed_at)),
           overallAccuracy: totalQ > 0 ? Math.round((totalCorrect / totalQ) * 100) : 0,
           recentSessions,
           examProgress,

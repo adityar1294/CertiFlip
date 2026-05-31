@@ -12,6 +12,8 @@ import XpReward from '@/components/XpReward';
 import { useExams } from '@/hooks/useExams';
 import { useQuestions } from '@/hooks/useQuestions';
 import { useNotes } from '@/hooks/useNotes';
+import { useBookmarks } from '@/hooks/useBookmarks';
+import { saveExamAttempt } from '@/lib/examAttempts';
 
 type OptionKey = 'A' | 'B' | 'C' | 'D';
 
@@ -26,6 +28,7 @@ export default function ExamPage({ params }: { params: Promise<{ code: string }>
 
   const { data: questions, loading: questionsLoading } = useQuestions(examId);
   const { saveNote } = useNotes();
+  const { bookmarked, toggle: toggleBookmark } = useBookmarks(examId);
 
   const [currentIdx, setCurrentIdx] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
@@ -132,12 +135,15 @@ export default function ExamPage({ params }: { params: Promise<{ code: string }>
     setSubmitted(true);
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (currentIdx < total - 1) {
       setCurrentIdx(p => p + 1);
       setSelected(null);
       setSubmitted(false);
     } else {
+      const correct = history.filter(h => h.correct).length;
+      const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
+      await saveExamAttempt({ examId, score: pct, totalQuestions: total });
       setShowSummary(true);
     }
   };
@@ -181,7 +187,14 @@ export default function ExamPage({ params }: { params: Promise<{ code: string }>
           {/* Question header */}
           <div className="flex items-center justify-between mb-4">
             <span className="label" style={{ color: 'var(--accent-teal)' }}>Question {currentIdx + 1}</span>
-            <button className="text-sm" style={{ color: 'var(--text-muted)' }} title="Bookmark">🔖</button>
+            <button
+              onClick={() => q && toggleBookmark(q.id)}
+              className="text-sm transition-opacity hover:opacity-80"
+              title={q && bookmarked.has(q.id) ? 'Remove bookmark' : 'Bookmark question'}
+              style={{ opacity: q && bookmarked.has(q.id) ? 1 : 0.4 }}
+            >
+              🔖
+            </button>
           </div>
 
           {/* Question text */}
@@ -206,6 +219,28 @@ export default function ExamPage({ params }: { params: Promise<{ code: string }>
               </button>
             ))}
           </div>
+
+          {/* Mobile-only inline explanation — hidden on md+ where the right panel shows */}
+          {submitted && q && (
+            <div className="md:hidden animate-fade-in space-y-3 mb-2">
+              <div
+                className="p-4 rounded-xl text-sm leading-relaxed whitespace-pre-line"
+                style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', color: 'var(--text-secondary)', borderLeft: '3px solid var(--accent-teal)' }}
+              >
+                {q.detailed_explanation || 'No explanation provided for this question.'}
+              </div>
+              <div
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium"
+                style={
+                  selected === q.correct_option
+                    ? { background: 'var(--accent-teal-bg)', color: 'var(--accent-teal)', border: '1px solid var(--accent-teal-border)' }
+                    : { background: 'var(--accent-coral-bg)', color: 'var(--accent-coral)', border: '1px solid var(--accent-coral-border)' }
+                }
+              >
+                {selected === q.correct_option ? '✓ Correct' : `✗ Incorrect · Answer: ${q.correct_option}`}
+              </div>
+            </div>
+          )}
 
           {/* Question map + action */}
           <div className="mt-auto space-y-4">

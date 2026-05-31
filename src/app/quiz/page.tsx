@@ -7,6 +7,7 @@ import { AppNav } from '@/components/TopNav';
 import { AppToolbar } from '@/components/Toolbar';
 import { useExams } from '@/hooks/useExams';
 import { useQuestions } from '@/hooks/useQuestions';
+import { saveExamAttempt } from '@/lib/examAttempts';
 
 const QUIZ_SIZE = 5;
 const SECONDS_PER_QUESTION = 30;
@@ -59,8 +60,15 @@ export default function PopQuizPage() {
     advance();
   };
 
-  const advance = () => {
+  const advance = async () => {
     if (currentIdx + 1 >= (questions?.length ?? 0)) {
+      // Save attempt — score is based on results so far + current answer
+      const total = questions?.length ?? 0;
+      const correct = results.filter(r => r.correct).length;
+      const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
+      if (firstExam?.id) {
+        await saveExamAttempt({ examId: firstExam.id, score: pct, totalQuestions: total });
+      }
       setDone(true);
     } else {
       setCurrentIdx(p => p + 1);
