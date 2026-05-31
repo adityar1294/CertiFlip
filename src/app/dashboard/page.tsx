@@ -1,13 +1,15 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Shell from '@/components/Shell';
 import { AppNav } from '@/components/TopNav';
 import { AppToolbar } from '@/components/Toolbar';
 import StatCard from '@/components/StatCard';
 import ProgressBar from '@/components/ProgressBar';
+import OnboardingModal, { isOnboarded, getFocusExam, getTargetDate } from '@/components/OnboardingModal';
 import { useDashboard, timeGreeting, formatSessionTime } from '@/hooks/useDashboard';
+import { useExams } from '@/hooks/useExams';
 
 const accentForIndex = (i: number) => {
   const accents = ['teal', 'amber', 'purple', 'gray'] as const;
@@ -30,6 +32,21 @@ function xpToLevel(xp: number): { level: number; xpInLevel: number; xpForNext: n
 
 export default function DashboardPage() {
   const { data, loading } = useDashboard();
+  const { data: allExams } = useExams();
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  const [focusExam, setFocusExam] = useState<string | null>(null);
+  const [targetDate, setTargetDate] = useState<string | null>(null);
+
+  // Only check onboarding state client-side (localStorage unavailable during SSR)
+  useEffect(() => {
+    if (!isOnboarded()) {
+      setShowOnboarding(true);
+    } else {
+      setFocusExam(getFocusExam());
+      setTargetDate(getTargetDate());
+    }
+  }, []);
 
   const greeting = timeGreeting();
   const totalDue = data?.totalDue ?? 0;
@@ -46,6 +63,17 @@ export default function DashboardPage() {
       nav={<AppNav activePage="Dashboard" streak={streak} />}
       toolbar={<AppToolbar activePage="Dashboard" streak={streak} />}
     >
+      {showOnboarding && allExams && allExams.length > 0 && (
+        <OnboardingModal
+          exams={allExams}
+          onComplete={() => {
+            setShowOnboarding(false);
+            setFocusExam(getFocusExam());
+            setTargetDate(getTargetDate());
+          }}
+        />
+      )}
+
       <div className="max-w-6xl mx-auto px-6 py-10 space-y-8 pb-24">
 
         {/* Greeting */}
@@ -57,11 +85,18 @@ export default function DashboardPage() {
             {loading ? (
               <span style={{ color: 'var(--text-muted)' }}>Loading your stats…</span>
             ) : totalDue > 0 ? (
-              <>You have <span style={{ color: 'var(--accent-teal)', fontWeight: 500 }}>{totalDue} flashcard{totalDue !== 1 ? 's' : ''}</span> due for review today.</>
+              <>You have <span style={{ color: 'var(--accent-teal)', fontWeight: 500 }}>{totalDue} flashcard{totalDue !== 1 ? 's' : ''}</span> due for review today{focusExam ? ` · studying ${focusExam}` : ''}.</>
             ) : (
               <span style={{ color: 'var(--accent-teal)' }}>All caught up on flashcards! Keep it up 🎉</span>
             )}
           </p>
+          {targetDate && (
+            <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+              🎯 Target: {new Date(targetDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+              {' · '}
+              {Math.max(0, Math.round((new Date(targetDate).getTime() - Date.now()) / 864e5))} days to go
+            </p>
+          )}
         </div>
 
         {/* Stats row */}
