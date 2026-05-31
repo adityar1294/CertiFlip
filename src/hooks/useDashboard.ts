@@ -26,7 +26,7 @@ export interface DashboardData {
   examProgress: ExamProgress[];
 }
 
-function computeStreak(dates: string[]): number {
+export function computeStreak(dates: string[]): number {
   if (dates.length === 0) return 0;
 
   // Get unique calendar days (local time) sorted descending
