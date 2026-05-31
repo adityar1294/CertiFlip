@@ -7,7 +7,7 @@ import { AppNav } from '@/components/TopNav';
 import { AppToolbar } from '@/components/Toolbar';
 import StatCard from '@/components/StatCard';
 import ProgressBar from '@/components/ProgressBar';
-import { useExams } from '@/hooks/useExams';
+import { useDashboard, timeGreeting, formatSessionTime } from '@/hooks/useDashboard';
 
 const accentForIndex = (i: number) => {
   const accents = ['teal', 'amber', 'purple', 'gray'] as const;
@@ -21,32 +21,71 @@ const accentColors: Record<string, { color: string; bg: string; border: string }
   gray:   { color: 'var(--text-muted)',    bg: 'rgba(255,255,255,0.03)',  border: 'var(--card-border)' },
 };
 
+function xpToLevel(xp: number): { level: number; xpInLevel: number; xpForNext: number } {
+  const xpPerLevel = 500;
+  const level = Math.floor(xp / xpPerLevel) + 1;
+  const xpInLevel = xp % xpPerLevel;
+  return { level, xpInLevel, xpForNext: xpPerLevel - xpInLevel };
+}
+
 export default function DashboardPage() {
-  const { data: exams, loading } = useExams();
+  const { data, loading } = useDashboard();
+
+  const greeting = timeGreeting();
+  const totalDue = data?.totalDue ?? 0;
+  const totalXp = data?.totalXp ?? 0;
+  const streak = data?.streak ?? 0;
+  const accuracy = data?.overallAccuracy ?? 0;
+  const recentSessions = data?.recentSessions ?? [];
+  const examProgress = data?.examProgress ?? [];
+  const { level, xpInLevel, xpForNext } = xpToLevel(totalXp);
+  const xpPct = Math.round((xpInLevel / 500) * 100);
 
   return (
     <Shell
-      nav={<AppNav activePage="Dashboard" streak={7} />}
-      toolbar={<AppToolbar activePage="Dashboard" streak={7} />}
+      nav={<AppNav activePage="Dashboard" streak={streak} />}
+      toolbar={<AppToolbar activePage="Dashboard" streak={streak} />}
     >
       <div className="max-w-6xl mx-auto px-6 py-10 space-y-8 pb-24">
 
         {/* Greeting */}
         <div>
           <h1 className="font-display text-36 mb-1" style={{ color: 'var(--text-primary)', fontFamily: 'Syne, sans-serif' }}>
-            Good morning ☀️
+            {greeting} {greeting === 'Good morning' ? '☀️' : greeting === 'Good afternoon' ? '🌤️' : '🌙'}
           </h1>
           <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-            You have <span style={{ color: 'var(--accent-teal)', fontWeight: 500 }}>12 flashcards</span> due for review today.
+            {loading ? (
+              <span style={{ color: 'var(--text-muted)' }}>Loading your stats…</span>
+            ) : totalDue > 0 ? (
+              <>You have <span style={{ color: 'var(--accent-teal)', fontWeight: 500 }}>{totalDue} flashcard{totalDue !== 1 ? 's' : ''}</span> due for review today.</>
+            ) : (
+              <span style={{ color: 'var(--accent-teal)' }}>All caught up on flashcards! Keep it up 🎉</span>
+            )}
           </p>
         </div>
 
         {/* Stats row */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <StatCard label="Progress (NISM-VIII)" value="68%" delta="4% this week" accent="var(--accent-teal)" />
-          <StatCard label="XP earned" value="2,140" delta="120 today" accent="var(--accent-amber)" />
-          <StatCard label="Day streak" value="7 🔥" accent="var(--accent-amber)" />
-          <StatCard label="Avg accuracy" value="74%" delta="2% vs last week" accent="var(--accent-purple)" />
+          <StatCard
+            label="Avg accuracy"
+            value={accuracy > 0 ? `${accuracy}%` : '—'}
+            accent="var(--accent-teal)"
+          />
+          <StatCard
+            label="XP earned"
+            value={totalXp > 0 ? totalXp.toLocaleString() : '—'}
+            accent="var(--accent-amber)"
+          />
+          <StatCard
+            label="Day streak"
+            value={streak > 0 ? `${streak} 🔥` : '0'}
+            accent="var(--accent-amber)"
+          />
+          <StatCard
+            label="Sessions"
+            value={data ? String(recentSessions.length > 0 ? (data.recentSessions.length < 5 ? data.recentSessions.length : '5+') : '0') : '—'}
+            accent="var(--accent-purple)"
+          />
         </div>
 
         {/* Bento grid */}
@@ -60,7 +99,7 @@ export default function DashboardPage() {
               <div className="w-5 h-5 rounded-full border-2 border-t-transparent" style={{ borderColor: 'var(--accent-teal)', animation: 'spin 0.8s linear infinite' }} />
               <span className="text-sm">Loading modules…</span>
             </div>
-          ) : !exams || exams.length === 0 ? (
+          ) : examProgress.length === 0 ? (
             <div
               className="flex flex-col items-center justify-center py-20 rounded-2xl text-center"
               style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}
@@ -82,15 +121,15 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {exams?.map((exam, i) => {
+              {examProgress.map((ep, i) => {
                 const accentKey = accentForIndex(i);
                 const a = accentColors[accentKey];
                 const isFirst = i === 0;
-                const progress = isFirst ? 68 : i === 1 ? 12 : 0;
+                const progress = ep.lastScore ?? 0;
 
                 return (
                   <div
-                    key={exam.id}
+                    key={ep.examId}
                     className={`group relative overflow-hidden flex flex-col p-6 rounded-2xl transition-all duration-300 hover:-translate-y-0.5 ${isFirst ? 'md:col-span-2' : ''}`}
                     style={{ background: 'var(--card-bg)', border: `1px solid ${a.border}` }}
                   >
@@ -99,24 +138,21 @@ export default function DashboardPage() {
 
                     <div className="relative z-10 flex flex-col h-full">
                       <span className="label inline-block px-2 py-0.5 rounded mb-3 self-start" style={{ color: a.color, background: a.bg, border: `1px solid ${a.border}` }}>
-                        {exam.code}
+                        {ep.examCode}
                       </span>
                       <h3 className="font-display text-18 mb-2" style={{ color: 'var(--text-primary)', fontFamily: 'Syne, sans-serif' }}>
-                        {exam.title}
+                        {ep.examTitle}
                       </h3>
-                      {exam.description && (
-                        <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>{exam.description}</p>
-                      )}
 
                       {progress > 0 && (
                         <div className="mb-4">
-                          <ProgressBar value={progress} color={accentKey === 'gray' ? 'muted' : accentKey as 'teal' | 'amber' | 'purple' | 'coral' | 'muted'} showLabel label="Progress" />
+                          <ProgressBar value={progress} color={accentKey === 'gray' ? 'muted' : accentKey as 'teal' | 'amber' | 'purple' | 'coral' | 'muted'} showLabel label="Last score" />
                         </div>
                       )}
 
                       <div className="mt-auto">
                         <Link
-                          href={`/exam/${exam.code}`}
+                          href={`/exam/${ep.examCode}`}
                           className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all hover:opacity-90"
                           style={{ background: a.color, color: progress === 0 ? 'var(--text-primary)' : '#071510' }}
                         >
@@ -130,24 +166,43 @@ export default function DashboardPage() {
 
               {/* Gamification card */}
               <div
-                className="flex flex-col p-6 rounded-2xl row-span-2 md:row-auto"
+                className="flex flex-col p-6 rounded-2xl"
                 style={{ background: 'var(--card-bg)', border: '1px solid var(--accent-purple-border)' }}
               >
                 <span className="label inline-block px-2 py-0.5 rounded mb-4 self-start" style={{ color: 'var(--accent-purple)', background: 'var(--accent-purple-bg)', border: '1px solid var(--accent-purple-border)' }}>
-                  Level 4
+                  Level {level}
                 </span>
                 <h3 className="font-display text-18 mb-1" style={{ color: 'var(--text-primary)', fontFamily: 'Syne, sans-serif' }}>Your progress</h3>
-                <p className="text-xs mb-6" style={{ color: 'var(--text-muted)' }}>360 XP to next level</p>
+                <p className="text-xs mb-6" style={{ color: 'var(--text-muted)' }}>{xpForNext} XP to next level</p>
 
-                {/* XP bar */}
-                <ProgressBar value={64} color="purple" height={6} showLabel label="XP to Level 5" />
+                <ProgressBar value={xpPct} color="purple" height={6} showLabel label={`XP to Level ${level + 1}`} />
 
                 <div className="mt-6 flex flex-wrap gap-2">
-                  {['🔥 7-day streak', '⭐ First 100%', '🎯 Sharpshooter'].map(badge => (
-                    <span key={badge} className="text-xs px-2 py-1 rounded-md" style={{ background: 'var(--card-raised)', color: 'var(--text-secondary)', border: '1px solid var(--card-border)' }}>
-                      {badge}
+                  {streak >= 7 && (
+                    <span className="text-xs px-2 py-1 rounded-md" style={{ background: 'var(--card-raised)', color: 'var(--text-secondary)', border: '1px solid var(--card-border)' }}>
+                      🔥 {streak}-day streak
                     </span>
-                  ))}
+                  )}
+                  {streak > 0 && streak < 7 && (
+                    <span className="text-xs px-2 py-1 rounded-md" style={{ background: 'var(--card-raised)', color: 'var(--text-secondary)', border: '1px solid var(--card-border)' }}>
+                      🔥 {streak}-day streak
+                    </span>
+                  )}
+                  {accuracy >= 100 && (
+                    <span className="text-xs px-2 py-1 rounded-md" style={{ background: 'var(--card-raised)', color: 'var(--text-secondary)', border: '1px solid var(--card-border)' }}>
+                      ⭐ First 100%
+                    </span>
+                  )}
+                  {accuracy >= 80 && (
+                    <span className="text-xs px-2 py-1 rounded-md" style={{ background: 'var(--card-raised)', color: 'var(--text-secondary)', border: '1px solid var(--card-border)' }}>
+                      🎯 Sharpshooter
+                    </span>
+                  )}
+                  {recentSessions.length === 0 && streak === 0 && (
+                    <span className="text-xs px-2 py-1 rounded-md" style={{ background: 'var(--card-raised)', color: 'var(--text-muted)', border: '1px solid var(--card-border)' }}>
+                      Complete sessions to earn badges
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -159,43 +214,61 @@ export default function DashboardPage() {
           {/* Recent sessions */}
           <div className="p-6 rounded-2xl" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
             <h3 className="font-display text-15 mb-4" style={{ color: 'var(--text-secondary)', fontFamily: 'Syne, sans-serif' }}>Recent sessions</h3>
-            <div className="space-y-3">
-              {[
-                { name: 'NISM-VIII Practice', score: 74, time: '2h ago' },
-                { name: 'NISM-VIII Practice', score: 68, time: 'Yesterday' },
-                { name: 'NISM-V-A Practice', score: 55, time: '3 days ago' },
-              ].map((s, i) => (
-                <div key={i} className="flex items-center justify-between text-sm">
-                  <span style={{ color: 'var(--text-secondary)' }}>{s.name}</span>
-                  <div className="flex items-center gap-3">
-                    <span className="font-medium" style={{ color: s.score >= 70 ? 'var(--success)' : 'var(--warning)' }}>{s.score}%</span>
-                    <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{s.time}</span>
+            {loading ? (
+              <div className="text-sm py-4 text-center" style={{ color: 'var(--text-muted)' }}>Loading…</div>
+            ) : recentSessions.length === 0 ? (
+              <div className="text-sm py-4 text-center" style={{ color: 'var(--text-muted)' }}>
+                No sessions yet — <Link href="/modules" style={{ color: 'var(--accent-teal)' }}>start studying</Link>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {recentSessions.map(s => (
+                  <div key={s.id} className="flex items-center justify-between text-sm">
+                    <span style={{ color: 'var(--text-secondary)' }}>{s.examCode} Practice</span>
+                    <div className="flex items-center gap-3">
+                      <span className="font-medium" style={{ color: s.score >= 70 ? 'var(--success)' : s.score >= 50 ? 'var(--warning)' : 'var(--danger)' }}>
+                        {s.score}%
+                      </span>
+                      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{formatSessionTime(s.createdAt)}</span>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Leaderboard */}
+          {/* Flashcard due summary */}
           <div className="p-6 rounded-2xl" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
-            <h3 className="font-display text-15 mb-4" style={{ color: 'var(--text-secondary)', fontFamily: 'Syne, sans-serif' }}>Weekly leaderboard</h3>
-            <div className="space-y-3">
-              {[
-                { rank: 1, name: 'Priya S.', xp: 1840 },
-                { rank: 2, name: 'You', xp: 1420, isYou: true },
-                { rank: 3, name: 'Rohan K.', xp: 1210 },
-              ].map(e => (
-                <div key={e.rank} className="flex items-center gap-3 text-sm">
-                  <span className="w-5 text-xs text-center font-bold" style={{ color: e.rank === 1 ? 'var(--accent-amber)' : 'var(--text-muted)' }}>
-                    {e.rank === 1 ? '🥇' : e.rank === 2 ? '🥈' : '🥉'}
-                  </span>
-                  <span className="flex-1" style={{ color: e.isYou ? 'var(--accent-teal)' : 'var(--text-secondary)', fontWeight: e.isYou ? 500 : 400 }}>
-                    {e.name}
-                  </span>
-                  <span className="font-medium" style={{ color: 'var(--accent-amber)' }}>{e.xp.toLocaleString()} XP</span>
+            <h3 className="font-display text-15 mb-4" style={{ color: 'var(--text-secondary)', fontFamily: 'Syne, sans-serif' }}>Flashcards due today</h3>
+            {loading ? (
+              <div className="text-sm py-4 text-center" style={{ color: 'var(--text-muted)' }}>Loading…</div>
+            ) : totalDue === 0 ? (
+              <div className="flex flex-col items-center justify-center py-4 gap-3 text-center">
+                <span className="text-3xl">🎉</span>
+                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>You're all caught up!</p>
+                <Link
+                  href="/flashcards"
+                  className="text-xs px-3 py-1.5 rounded-lg transition-all hover:opacity-90"
+                  style={{ background: 'var(--accent-teal-bg)', color: 'var(--accent-teal)', border: '1px solid var(--accent-teal-border)' }}
+                >
+                  Browse flashcard decks →
+                </Link>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                <div className="flex items-baseline gap-2">
+                  <span className="font-display text-36" style={{ color: 'var(--accent-teal)', fontFamily: 'Syne, sans-serif' }}>{totalDue}</span>
+                  <span className="text-sm" style={{ color: 'var(--text-muted)' }}>card{totalDue !== 1 ? 's' : ''} to review</span>
                 </div>
-              ))}
-            </div>
+                <Link
+                  href="/flashcards"
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90 mt-2"
+                  style={{ background: 'var(--accent-teal)', color: '#071510' }}
+                >
+                  Start review →
+                </Link>
+              </div>
+            )}
           </div>
         </div>
 
