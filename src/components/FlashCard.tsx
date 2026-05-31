@@ -33,10 +33,10 @@ export default function FlashCard({ card, onGotIt, onMissedIt, cardKey }: FlashC
   const correctOptionText = q.dynamic_options[q.correct_option] ?? '';
 
   return (
-    <div className="flex flex-col items-center gap-6 w-full max-w-3xl mx-auto">
+    <div className="flex flex-col gap-6 w-full max-w-3xl mx-auto">
 
       {/* Box badge */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center justify-center gap-2">
         <span
           className="label px-2.5 py-1 rounded-full"
           style={{ color: boxAccent.color, background: boxAccent.bg, border: `1px solid ${boxAccent.border}` }}
@@ -64,6 +64,7 @@ export default function FlashCard({ card, onGotIt, onMissedIt, cardKey }: FlashC
             transition: 'transform 0.55s cubic-bezier(0.4, 0, 0.2, 1)',
             transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
             position: 'relative',
+            width: '100%',
             minHeight: '340px',
           }}
         >
@@ -215,7 +216,7 @@ export default function FlashCard({ card, onGotIt, onMissedIt, cardKey }: FlashC
 
       {/* Tap hint when not yet flipped */}
       {!flipped && (
-        <p className="text-xs animate-pulse" style={{ color: 'var(--text-muted)' }}>
+        <p className="text-xs animate-pulse text-center" style={{ color: 'var(--text-muted)' }}>
           Tap the card to reveal the answer
         </p>
       )}

@@ -81,6 +81,10 @@ html, body {
   height: 100%;
 }
 
+html {
+  scrollbar-gutter: stable;
+}
+
 body {
   background: var(--glass);
   color: var(--glass-text);
