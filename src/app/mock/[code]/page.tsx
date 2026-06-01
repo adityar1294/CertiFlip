@@ -5,33 +5,29 @@ import Link from 'next/link';
 import Shell from '@/components/Shell';
 import { AppNav } from '@/components/TopNav';
 import { AppToolbar } from '@/components/Toolbar';
-import PlanGate from '@/components/PlanGate';
 import QuestionMap from '@/components/QuestionMap';
 import { useExams } from '@/hooks/useExams';
 import { useQuestions } from '@/hooks/useQuestions';
+import { useMockSession } from '@/hooks/useMockSession';
+import { saveExamAttempt } from '@/lib/examAttempts';
 
-// In production this would come from auth context
-const USER_PLAN = 'free'; // 'free' | 'pro'
+// TODO: Gate behind 'pro' plan once Razorpay payment flow is live.
+// For now, all authenticated users can access mock exams.
 
 export default function MockExamPage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = use(params);
   const { data: exams } = useExams();
   const activeExam = exams?.find(e => e.code.toLowerCase() === code.toLowerCase());
   const { data: questions } = useQuestions(activeExam?.id ?? '');
+  const { startSession, submitSession } = useMockSession();
 
   const [started, setStarted] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [flagged, setFlagged] = useState<Set<number>>(new Set());
   const [submitted, setSubmitted] = useState(false);
-
-  if (USER_PLAN === 'free') {
-    return (
-      <Shell nav={<AppNav activePage="Practice" />} toolbar={<AppToolbar activePage="Practice" />}>
-        <PlanGate feature="Mock exam mode" />
-      </Shell>
-    );
-  }
+  const [submitting, setSubmitting] = useState(false);
 
   const q = questions?.[currentIdx];
   const total = questions?.length ?? 0;
@@ -50,8 +46,32 @@ export default function MockExamPage({ params }: { params: Promise<{ code: strin
     });
   };
 
-  const handleSubmit = () => {
-    if (window.confirm('Submit the exam? You cannot go back.')) setSubmitted(true);
+  const handleSubmit = async () => {
+    if (!window.confirm('Submit the exam? You cannot go back.')) return;
+    if (!questions) return;
+    setSubmitting(true);
+    try {
+      // Convert index-based answers → question-id-based answers
+      const idAnswers: Record<string, string> = {};
+      questions.forEach((q2, i) => {
+        if (answers[i]) idAnswers[q2.id] = answers[i];
+      });
+      const sid = sessionId ?? (activeExam?.id ? await startSession(activeExam.id) : null);
+      if (sid) {
+        await submitSession(sid, idAnswers, questions.map(q2 => ({ id: q2.id, correct_option: q2.correct_option })));
+      }
+      // Also log to exam_attempts so Progress / Dashboard pages pick it up
+      const correctCount = questions.filter((q2, i) => answers[i] === q2.correct_option).length;
+      const pct = questions.length > 0 ? Math.round((correctCount / questions.length) * 100) : 0;
+      if (activeExam?.id) {
+        await saveExamAttempt({ examId: activeExam.id, score: pct, totalQuestions: questions.length });
+      }
+    } catch {
+      // Non-blocking — still show results even if save fails
+    } finally {
+      setSubmitting(false);
+      setSubmitted(true);
+    }
   };
 
   const dotStates = Array.from({ length: total }).map((_, i) => {
@@ -134,7 +154,12 @@ export default function MockExamPage({ params }: { params: Promise<{ code: strin
             <p className="text-xs mb-8 p-3 rounded-lg" style={{ color: 'var(--accent-coral)', background: 'var(--accent-coral-bg)', border: '1px solid var(--accent-coral-border)' }}>
               ⚠ Forward-only navigation. You cannot go back to previous questions.
             </p>
-            <button onClick={() => setStarted(true)} className="px-8 py-3 rounded-xl text-sm font-semibold hover:opacity-90" style={{ background: 'var(--accent-teal)', color: '#071510' }}>
+            <button onClick={async () => {
+                setStarted(true);
+                if (activeExam?.id) {
+                  try { const sid = await startSession(activeExam.id); setSessionId(sid); } catch { /* non-blocking */ }
+                }
+              }} className="px-8 py-3 rounded-xl text-sm font-semibold hover:opacity-90" style={{ background: 'var(--accent-teal)', color: '#071510' }}>
               Begin exam →
             </button>
           </div>
@@ -193,8 +218,8 @@ export default function MockExamPage({ params }: { params: Promise<{ code: strin
               Next →
             </button>
           ) : (
-            <button onClick={handleSubmit} className="px-5 py-2.5 rounded-xl text-sm font-semibold hover:opacity-90" style={{ background: 'var(--accent-teal)', color: '#071510' }}>
-              Submit exam
+            <button onClick={handleSubmit} disabled={submitting} className="px-5 py-2.5 rounded-xl text-sm font-semibold hover:opacity-90 disabled:opacity-60" style={{ background: 'var(--accent-teal)', color: '#071510' }}>
+              {submitting ? 'Submitting…' : 'Submit exam'}
             </button>
           )}
         </div>
